@@ -60,6 +60,7 @@ class HistoricResultsView(BrowserView):
         self._dates, self._rows = get_historicresults(self.context)
 
 
+# TODO-performance: Review this function
 def get_historicresults(patient):
     if not patient:
         return ([], {})
@@ -109,7 +110,7 @@ def get_historicresults(patient):
             # sample type will be taken into consideration.
             # We assume specs from previous analyses are obsolete.
             if 'specs' not in asdict.keys():
-                spec = analysis.getAnalysisSpecs()                
+                spec = analysis.getAnalysisSpecs()
                 spec = spec.getResultsRangeDict() if spec else {}
                 specs = spec.get(analysis.getKeyword(), {})
                 if not specs.get('rangecomment', ''):

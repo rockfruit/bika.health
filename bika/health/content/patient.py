@@ -8,7 +8,7 @@ from Products.Archetypes import atapi
 from Products.Archetypes.public import *
 from Products.CMFCore.utils import getToolByName
 from Products.CMFPlone.utils import safe_unicode
-from bika.lims import bikaMessageFactory as _b
+from plone.memoize import instance
 from bika.health import bikaMessageFactory as _
 from bika.lims.browser.fields import AddressField
 from bika.lims.browser.fields import DateTimeField as DateTimeField_bl
@@ -22,11 +22,11 @@ from bika.health.interfaces import IPatient
 from bika.health.permissions import *
 from bika.health.widgets import ReadonlyStringWidget
 from datetime import datetime
-from zope.component import getAdapters
 from zope.interface import implements
-from Products.Archetypes.references import HoldingReference
 from bika.health.widgets.patientmenstrualstatuswidget import PatientMenstrualStatusWidget
 from bika.lims.vocabularies import CustomPubPrefVocabularyFactory
+from bika.lims.catalog import CATALOG_ANALYSIS_REQUEST_LISTING
+
 
 schema = Person.schema.copy() + Schema((
     StringField('PatientID',
@@ -538,7 +538,7 @@ schema = Person.schema.copy() + Schema((
     ),
     ComputedField(
         'NumberOfSamples',
-        expression="len(context.getSamples())",
+        expression="len(context.getSamplesUIDs())",
         widget=ComputedWidget(
             visible=False
         ),
@@ -625,61 +625,55 @@ class Patient(Person):
         return self.getId()
 
     security.declarePublic('getSamples')
-    def getSamples(self):
-        """ get all samples taken from this Patient """
-        l = []
+
+    def getSamplesUIDs(self):
+        """ get all samples UIDs taken from this Patient """
+        samples_uids = []
         for ar in self.getARs():
-            sample = ar.getObject().getSample()
-            if sample:
-                l.append(sample)
-        return l
+            if ar.getSampleUID not in samples_uids:
+                samples_uids.append(ar.getSampleUID)
+        return samples_uids
 
     def getSamplesCancelled(self):
         """
         Cancelled Samples
         """
-        workflow = getToolByName(self, 'portal_workflow')
-        l = self.getSamples()
-        return [sample for samples in l if
-                workflow.getInfoFor(analysis, 'review_state') == 'cancelled']
+        ars = self.getARs()
+        samples_uids = []
+        for ar in ars:
+            if ar.getObjectWorkflowStates\
+                .get('cancellation_state', '') == 'cancelled':
+                if ar.getSampleUID not in samples_uids:
+                    samples_uids.append(ar.getSampleUID)
+        return samples_uids
 
     def getSamplesPublished(self):
         """
         Published Samples
         """
-        workflow = getToolByName(self, 'portal_workflow')
         ars = self.getARs()
-        samples = []
         samples_uids = []
         for ar in ars:
             if ar.review_state == 'published':
-                # Getting the object now
-                sample = ar.getObject().getSample()
-                if sample and sample.UID() not in samples_uids:
-                    samples.append(sample.UID())
-                    samples_uids.append(sample)
-        return samples
+                if ar.getSampleUID not in samples_uids:
+                    samples_uids.append(ar.getSampleUID)
+        return samples_uids
 
     def getSamplesOngoing(self):
         """
         Ongoing on Samples
         """
-        workflow = getToolByName(self, 'portal_workflow')
         ars = self.getARs()
         states = [
             'verified', 'to_be_sampled', 'scheduled_sampling', 'sampled',
             'to_be_preserved', 'sample_due', 'sample_prep', 'sample_received',
             'to_be_verified', ]
-        samples = []
         samples_uids = []
         for ar in ars:
             if ar.review_state in states:
-                # Getting the object now
-                sample = ar.getObject().getSample()
-                if sample and sample.UID() not in samples_uids:
-                    samples.append(sample.UID())
-                    samples_uids.append(sample)
-        return samples
+                if ar.getSampleUID not in samples_uids:
+                    samples_uids.append(ar.getSampleUID)
+        return samples_uids
 
     def getNumberOfSamplesOngoingRatio(self):
         """
@@ -691,15 +685,25 @@ class Patient(Person):
         return result
 
     security.declarePublic('getARs')
-    def getARs(self, analysis_state=None):
-        bc = getToolByName(self, 'bika_catalog')
-        ars = bc(
-            portal_type='AnalysisRequest',
-            getPatientUID=self.UID())
-        return ars
+
+    @instance.memoize
+    def getARs(self, review_state=[]):
+        """
+        Return a list of analysis request brains assigned to this patient and
+        filtered by review_state.
+        :review_state: a list with review_state ids
+        :return: a list of brains
+        """
+        catalog = getToolByName(self, CATALOG_ANALYSIS_REQUEST_LISTING)
+        query = {
+            portal_type: 'AnalysisRequest',
+            getPatientUID: self.UID()}
+        if review_state:
+            query['review_state'] = review_state
+        return catalog(query)
 
     def get_clients(self):
-        ## Only show clients to which we have Manage AR rights.
+        # Only show clients to which we have Manage AR rights.
         mtool = getToolByName(self, 'portal_membership')
         clientfolder = self.clients
         clients = []

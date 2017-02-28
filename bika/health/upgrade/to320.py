@@ -6,11 +6,14 @@
 from Acquisition import aq_inner
 from Acquisition import aq_parent
 from Products.CMFCore.utils import getToolByName
+import transaction
 from bika.health import logger
 from Products.CMFCore import permissions
 from bika.lims.catalog import setup_catalogs
 from bika.health.catalog import getCatalogDefinitions
 from bika.health.catalog import getCatalogExtensions
+from bika.lims.upgrade.to320 import addIndex
+from bika.lims.upgrade.to320 import cleanAndRebuildIfNeeded
 
 
 def upgrade(tool):
@@ -43,7 +46,9 @@ def upgrade(tool):
     """
     # wf = getToolByName(portal, 'portal_workflow')
     # wf.updateRoleMappings()
-
+    # Adding getPatientUIDs index in nika catalog
+    bc = getToolByName(portal, 'bika_catalog', None)
+    addgetPatientUIDs(portal, bc)
     # Updating health catalogs if there is any change in them
     setup_catalogs(
         portal, getCatalogDefinitions(),
@@ -53,4 +58,16 @@ def upgrade(tool):
     #     logger.info('Deletting catalog bika_patient_catalog...')
     #     portal.manage_delObjects(['bika_patient_catalog'])
     #     logger.info('Catalog bika_patient_catalog has been deleted')
+    # Clean and rebuild affected catalogs (if required)
+    logger.info("Cleaning and rebuilding...")
+    cleanAndRebuildIfNeeded(portal)
     return True
+
+
+def addgetPatientUIDs(portal, catalog):
+    """
+    Add an index to analysis catalog in order to use them in
+    analysisrequests listings.
+    """
+    addIndex(catalog, 'getPatientUIDs', 'KeywordIndex')
+    transaction.commit()

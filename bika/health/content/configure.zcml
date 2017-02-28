@@ -12,6 +12,7 @@
     <adapter factory=".analysisrequest.AnalysisRequestSchemaExtender" />
     <adapter factory=".analysisrequest.AnalysisRequestSchemaModifier" />
     <adapter factory=".analysisrequest.getPatientUID" name="getPatientUID" />
+    <adapter factory=".analysisrequest.getDoctorUID" name="getDoctorUID" />
 
     <adapter factory=".batch.BatchSchemaExtender" />
     <adapter factory=".batch.BatchSchemaModifier" />
@@ -31,5 +32,7 @@
     <adapter factory=".analysisspec.AnalysisSpecSchemaModifier" />
     <adapter factory=".bikasetup.BikaSetupSchemaExtender" />
     <adapter factory=".client.ClientSchemaExtender" />
+
+    <adapter factory=".sample.getPatientUIDs" name="getPatientUIDs" />
 
 </configure>
