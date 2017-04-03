@@ -1,6 +1,7 @@
 from bika.lims.browser.sample import SamplesView as BaseView
 from bika.health import bikaMessageFactory as _
 from Products.CMFCore.utils import getToolByName
+from bika.lims import deprecated
 
 
 class SamplesView(BaseView):
@@ -11,6 +12,11 @@ class SamplesView(BaseView):
     def __init__(self, context, request):
         super(SamplesView, self).__init__(context, request)
 
+    def before_render(self):
+        """
+        This function is loaded before the template being rendered.
+        """
+        BaseView.before_render(self)
         # Add Patient fields
         self.columns['getPatientID'] = {
             'title': _('Patient ID'),
@@ -26,7 +32,7 @@ class SamplesView(BaseView):
             'toggle': True}
         self.columns['getDoctor'] = {
             'title': _('Doctor'),
-            'sortable': False, 
+            'sortable': False,
             'toggle': True}
         for rs in self.review_states:
             i = rs['columns'].index('getSampleID') + 1
@@ -36,6 +42,7 @@ class SamplesView(BaseView):
             rs['columns'].insert(i, 'getDoctor')
 
     def folderitems(self, full_objects=False):
+        import pdb; pdb.set_trace()
         items = super(SamplesView, self).folderitems(full_objects)
         pm = getToolByName(self.context, "portal_membership")
         member = pm.getAuthenticatedMember()
@@ -93,6 +100,8 @@ class SamplesView(BaseView):
                 items[x]['replace']['getDoctor'] = ', '.join(doctorsanchors)
         return items
 
+    @deprecated(comment="bika.health.browser.samples.folder_view.getPatient is\
+                deprecated. Use bika.health.utiles.sample.getPatient.")
     def getPatient(self, sample):
         # Onse sample can have more than one AR associated, but if is
         # the case, we must only take into account the one that is not

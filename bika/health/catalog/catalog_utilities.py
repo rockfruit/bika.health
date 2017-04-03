@@ -1,6 +1,8 @@
 from Products.CMFCore.utils import getToolByName
 from bika.health.catalog.analysisrequest_catalog import\
     analysisrequest_catalog_definition
+from bika.health.catalog.sample_catalog import\
+    sample_catalog_definition
 from bika.health.catalog.patient_catalog import patient_catalog_definition
 from bika.lims import deprecated
 
@@ -16,7 +18,13 @@ def getCatalogExtensions():
     """
     Returns a dictionary with catalog extensions
     """
-    return analysisrequest_catalog_definition
+    final = {}
+    analysis_request = analysisrequest_catalog_definition
+    sample = sample_catalog_definition
+    # Merging the catalogs
+    final.update(analysis_request)
+    final.update(sample)
+    return final
 
 
 # TODO-catalog: Function to review its use. Good candidate to be removed
